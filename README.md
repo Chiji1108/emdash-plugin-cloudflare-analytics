@@ -7,6 +7,12 @@ An [EmDash CMS](https://emdashcms.com) plugin that shows your site's [Cloudflare
 - **Dashboard widget:** the last 7 days at a glance.
 - **English and Japanese:** the page and widget follow the admin's language.
 
+![The overview: site visits with a daily chart, the top pages, and insight cards](https://raw.githubusercontent.com/Chiji1108/emdash-plugin-cloudflare-analytics/main/docs/overview.png)
+
+![All pages: each page's name, page views and change from the previous period](https://raw.githubusercontent.com/Chiji1108/emdash-plugin-cloudflare-analytics/main/docs/pages.png)
+
+The screenshots use made-up data.
+
 This is a community plugin. It is not made or endorsed by Cloudflare.
 
 ## Requirements
