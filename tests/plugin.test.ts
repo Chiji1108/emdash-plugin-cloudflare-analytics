@@ -12,7 +12,7 @@ afterEach(async () => {
 });
 
 async function connectedHost(timeZone = "Asia/Tokyo") {
-	host = await createPluginRuntimeTestHost();
+	host = await createPluginRuntimeTestHost({ site: { url: "https://example.com" } });
 	await host.actions.plugin.updateSettings({
 		accountId: "account-1",
 		siteTag: "site-1",
@@ -173,22 +173,26 @@ describe("report page", () => {
 		expect(Object.keys(pages)).not.toContain("/wp-login.php");
 
 		const list = await host!.admin.act("/report", "show", { value: "pages:30" });
-		expect(findBlock(list.blocks, "table").rows.map((row: any) => row.cms ?? null)).toEqual([
+		const rows = findBlock(list.blocks, "table").rows;
+		expect(rows.map((row: any) => row.cms ?? null)).toEqual([
 			null,
 			null,
-			{ type: "link", label: "Edit", target: { kind: "content", collection: "news", id: "01NEWS" } },
+			{ type: "link", label: "Edit in CMS", target: { kind: "content", collection: "news", id: "01NEWS" } },
 		]);
-		expect(host!.http.requests()).toHaveLength(1);
+		expect(rows[1].page).toBe("About us  /about");
+		expect(rows[1].open).toEqual({ type: "link", label: "Open", target: { kind: "external", url: "https://example.com/about" } });
 	});
 
 	it("lists every page with its change", async () => {
 		await connectedHost();
 		await respond(report);
 		const page = await host!.admin.act("/report", "show", { value: "pages:30" });
-		expect(findBlock(page.blocks, "table").rows).toEqual([
-			{ path: "Home  /", pageViews: 80, change: "↓ 20.0%" },
-			{ path: "/about", pageViews: 20, change: "↑ 150.0%" },
-			{ path: "/news/お知らせ", pageViews: 5, change: "New" },
+		expect(
+			findBlock(page.blocks, "table").rows.map((row: any) => ({ page: row.page, pageViews: row.pageViews, change: row.change })),
+		).toEqual([
+			{ page: "Home  /", pageViews: 80, change: "↓ 20.0%" },
+			{ page: "/about", pageViews: 20, change: "↑ 150.0%" },
+			{ page: "/news/お知らせ", pageViews: 5, change: "New" },
 		]);
 		expect(findBlock(page.blocks, "actions").elements.map((element: any) => element.style)).toEqual([
 			"secondary",

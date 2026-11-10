@@ -271,7 +271,7 @@ export function reportPage(report: Report, pages: Pages, days: Range, view: View
 	];
 }
 
-export function pagesPage(report: Report, pages: Pages, days: Range, view: View): Block[] {
+export function pagesPage(report: Report, pages: Pages, siteUrl: string, days: Range, view: View): Block[] {
 	const { messages, locale } = view;
 	return [
 		{ type: "header", text: messages.title },
@@ -280,24 +280,28 @@ export function pagesPage(report: Report, pages: Pages, days: Range, view: View)
 			type: "table",
 			block_id: "pages",
 			page_action_id: "pages_page",
+			// The host right-aligns element columns as row actions, so the links sit at the end.
+			// A badge column would draw an empty pill on every non-CMS row; the edit link
+			// appears only on CMS pages and tells the reader the same thing.
 			columns: [
-				{ key: "path", label: messages.page },
+				{ key: "page", label: messages.page },
 				{ key: "pageViews", label: messages.pageViews, format: "number" },
 				{ key: "change", label: messages.change },
-				// Studio marked CMS pages with a badge; a link to the editor says the same and saves a search.
 				{ key: "cms", label: messages.cms, format: "element" },
+				{ key: "open", label: "", format: "element" },
 			],
 			rows: report.pages.map((page) => {
 				const change = changeOf(page.pageViews, page.previousPageViews);
 				const arrow = change === null ? "" : change > 0 ? "↑ " : change < 0 ? "↓ " : "";
 				const content = pages.get(page.path)?.content;
 				return {
-					path: pageLabel(page.path, pages, view),
+					page: pageLabel(page.path, pages, view),
 					pageViews: page.pageViews,
 					change: change === null ? messages.newPage : arrow + percent(change, locale, "never"),
 					...(content && {
-						cms: { type: "link", label: messages.edit, target: { kind: "content", ...content } },
+						cms: { type: "link", label: messages.editInCms, target: { kind: "content", ...content } },
 					}),
+					open: { type: "link", label: messages.open, target: { kind: "external", url: new URL(page.path, siteUrl).href } },
 				};
 			}),
 			empty_text: messages.empty,

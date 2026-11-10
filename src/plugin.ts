@@ -95,7 +95,7 @@ const plugin: SandboxedPlugin = {
 					const report = await cached(ctx, key("report"), () => loadReport(fetch, connection, days));
 					const pages = await pagesFor(ctx, report.pages.map((page) => page.path));
 					return {
-						blocks: section === "pages" ? pagesPage(report, pages, days, view) : reportPage(report, pages, days, view),
+						blocks: section === "pages" ? pagesPage(report, pages, ctx.site.url, days, view) : reportPage(report, pages, days, view),
 					};
 				} catch (error) {
 					if (!(error instanceof CloudflareError)) throw error;
