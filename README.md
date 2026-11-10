@@ -1,6 +1,14 @@
 # Cloudflare Web Analytics for EmDash
 
-An [EmDash CMS](https://emdashcms.com) plugin that shows your site's [Cloudflare Web Analytics](https://developers.cloudflare.com/web-analytics/) in the admin, so editors can see how the site is doing without a Cloudflare login.
+A lightweight [EmDash CMS](https://emdashcms.com) plugin that shows your site's [Cloudflare Web Analytics](https://developers.cloudflare.com/web-analytics/) in the admin, so editors can see how the site is doing without a Cloudflare login.
+
+If your pages already load the Web Analytics beacon, there is almost nothing to set up:
+
+- **Four settings:** account ID, site tag, API token and time zone.
+- **No cron, no sync, no tables:** the plugin reads Cloudflare live and reuses each result for 5 minutes.
+- **Workers Free:** it runs in process without a sandbox runner, or sandboxed where you have one.
+
+What editors get:
 
 - **Overview:** site visits for the last 7, 30 or 90 days with a daily chart, the top pages, and insights on page views and the fastest-growing page, each compared with the period before. Referrers, devices and countries are one click away.
 - **All pages:** every page's views and its change from the previous period, with links to open the page and, for pages that show a CMS entry, to edit it.

@@ -8,7 +8,7 @@
 	"author": { "name": "Chiji", "url": "https://chiji.tech" },
 	"security": { "url": "https://github.com/Chiji1108/emdash-plugin-cloudflare-analytics/security/advisories/new" },
 	"name": "Cloudflare Web Analytics",
-	"description": "Page views, visits, top pages, referrers, devices and countries from Cloudflare Web Analytics in the EmDash admin.",
+	"description": "Lightweight Cloudflare Web Analytics in the admin: visits, top pages, page list and insights. No cron or sync; runs on Workers Free.",
 	"keywords": ["analytics", "cloudflare", "web-analytics", "dashboard"],
 	"repo": "https://github.com/Chiji1108/emdash-plugin-cloudflare-analytics",
 
