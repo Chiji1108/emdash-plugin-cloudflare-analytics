@@ -69,7 +69,7 @@ The plugin queries the `rumPageloadEventsAdaptiveGroups` dataset of the [GraphQL
 | Per entry | Page list with names and a link to each CMS entry | Views per entry, an Analytics panel in the entry editor, MCP tools |
 | Page names | Learned from each page's title, so static pages get names too | CMS entries, matched through each collection's URL pattern |
 | Setup | Four settings; no cron, runs on Workers Free in process | Needs a Cron Trigger; the author recommends Workers Paid |
-| Languages | English and Japanese | English |
+| Languages | English and Japanese | English and German |
 
 ## Develop
 
