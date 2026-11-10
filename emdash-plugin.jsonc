@@ -1,0 +1,46 @@
+{
+	"$schema": "./node_modules/@emdash-cms/plugin-cli/schemas/emdash-plugin.schema.json",
+
+	"slug": "cloudflare-analytics",
+	"publisher": "did:plc:3o54gahohsyqeflef3a5njpe",
+
+	"license": "MIT",
+	"author": { "name": "Chiji", "url": "https://chiji.tech" },
+	"security": { "url": "https://github.com/Chiji1108/emdash-plugin-cloudflare-analytics/security/advisories/new" },
+	"name": "Cloudflare Web Analytics",
+	"description": "Page views, visits, top pages, referrers, devices and countries from Cloudflare Web Analytics in the EmDash admin.",
+	"keywords": ["analytics", "cloudflare", "web-analytics", "dashboard"],
+	"repo": "https://github.com/Chiji1108/emdash-plugin-cloudflare-analytics",
+
+	"capabilities": ["network:request"],
+	"allowedHosts": ["api.cloudflare.com"],
+	"storage": {},
+
+	"admin": {
+		"pages": [{ "path": "/report", "label": "Analytics", "icon": "chart-line" }],
+		"widgets": [{ "id": "overview", "title": "Analytics", "size": "full" }],
+		"settingsSchema": {
+			"accountId": {
+				"type": "string",
+				"label": "Account ID",
+				"description": "Shown on the Cloudflare dashboard's account home page."
+			},
+			"siteTag": {
+				"type": "string",
+				"label": "Site tag",
+				"description": "Open the site under Analytics & Logs > Web Analytics; the tag is the last part of the page URL. It is not the beacon token."
+			},
+			"apiToken": {
+				"type": "secret",
+				"label": "API token",
+				"description": "A token with the Account > Account Analytics > Read permission."
+			},
+			"timeZone": {
+				"type": "string",
+				"label": "Time zone",
+				"default": "UTC",
+				"description": "Days in the report start at midnight in this IANA time zone, such as Asia/Tokyo."
+			}
+		}
+	}
+}

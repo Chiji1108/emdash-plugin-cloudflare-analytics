@@ -1,0 +1,68 @@
+# Cloudflare Web Analytics for EmDash
+
+An [EmDash CMS](https://emdashcms.com) plugin that shows your site's [Cloudflare Web Analytics](https://developers.cloudflare.com/web-analytics/) in the admin, so editors can see how the site is doing without a Cloudflare login.
+
+- **Analytics page:** page views and visits for the last 7, 30 or 90 days, compared with the period before. It also shows a daily chart and the top pages, referrers, devices and countries.
+- **Dashboard widget:** the last 7 days at a glance.
+- **English and Japanese:** the page and widget follow the admin's language.
+
+This is a community plugin. It is not made or endorsed by Cloudflare.
+
+## Requirements
+
+- An EmDash site whose pages already load the Web Analytics beacon. The plugin only reads data; it does not add the beacon.
+- `EMDASH_ENCRYPTION_KEY` set on the site, so EmDash can encrypt the API token. See [Manage secrets and keys](https://docs.emdashcms.com/deployment/secrets/#the-encryption-key).
+
+## Install
+
+```sh
+pnpm add @chiji1108/emdash-plugin-cloudflare-analytics
+```
+
+Register the plugin in `astro.config.mjs`. It is sandbox-compatible, so it runs under a [sandbox runner](https://docs.emdashcms.com/deployment/plugin-sandbox/):
+
+```js
+import cloudflareAnalytics from "@chiji1108/emdash-plugin-cloudflare-analytics";
+
+emdash({
+	sandboxed: [cloudflareAnalytics],
+	sandboxRunner: sandbox(),
+});
+```
+
+A site without a sandbox runner, such as one on the Workers Free plan, can run it in process instead with `plugins: [cloudflareAnalytics]`.
+
+## Configure
+
+Open **Plugins → cloudflare-analytics → Settings** in the admin and fill in:
+
+| Setting | Where to find it |
+| --- | --- |
+| Account ID | The account home page of the Cloudflare dashboard. |
+| Site tag | Open the site under **Analytics & Logs → Web Analytics**. The tag is the last part of the page URL. It is not the token in the beacon snippet. |
+| API token | Create one under **My Profile → API Tokens** with the **Account → Account Analytics → Read** permission, limited to the account above. |
+| Time zone | An IANA name such as `Asia/Tokyo`. Days in the report start at midnight in this zone. The default is `UTC`. |
+
+## How it reads data
+
+The plugin queries the `rumPageloadEventsAdaptiveGroups` dataset of the [GraphQL Analytics API](https://developers.cloudflare.com/analytics/graphql-api/) and leaves out traffic Cloudflare marks as bots.
+
+- Cloudflare keeps Web Analytics data for six months. It samples older data, so the numbers are estimates, as they are in the Cloudflare dashboard.
+- Cloudflare allows 300 dataset queries per 5 minutes. The widget uses 2 per load and the analytics page 6. Each result is reused for 5 minutes, so heavy dashboard traffic stays well inside the limit.
+- Days are grouped from hourly data. In a time zone whose offset is not a whole hour, such as `Asia/Kolkata`, a day's boundary can be off by up to 30 minutes.
+
+## Develop
+
+```sh
+pnpm install
+pnpm run validate
+pnpm run typecheck
+pnpm run test
+pnpm run build
+```
+
+`pnpm run test` builds the plugin and runs it through EmDash's sandbox host with a mocked Cloudflare API.
+
+## License
+
+MIT
