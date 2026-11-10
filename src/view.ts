@@ -58,6 +58,12 @@ function openLink(path: string, siteUrl: string, { messages }: View) {
 	return { type: "link" as const, label: messages.open, target: { kind: "external" as const, url: new URL(path, siteUrl).href } };
 }
 
+/** Says how the numbers were estimated, or nothing when they are exact. */
+function sampledNote({ days, sampleInterval }: Summary, { messages }: View): Block[] {
+	if (sampleInterval <= 1) return [];
+	return [{ type: "context", text: days > 7 ? messages.sampledOlder(sampleInterval) : messages.sampled(sampleInterval) }];
+}
+
 function trendOf(change: number): StatItem["trend"] {
 	return change > 0 ? "up" : change < 0 ? "down" : "neutral";
 }
@@ -271,7 +277,7 @@ export function reportPage(report: Report, pages: Pages, days: Range, view: View
 		{ type: "header", text: messages.insights(report.days) },
 		insights(report, pages, view),
 		breakdowns(report, view),
-		{ type: "context", text: messages.sampled },
+		...sampledNote(report, view),
 	];
 }
 
@@ -310,7 +316,7 @@ export function pagesPage(report: Report, pages: Pages, siteUrl: string, days: R
 			}),
 			empty_text: messages.empty,
 		},
-		{ type: "context", text: messages.sampled },
+		...sampledNote(report, view),
 	];
 }
 

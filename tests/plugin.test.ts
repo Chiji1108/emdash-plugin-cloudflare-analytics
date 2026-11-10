@@ -32,7 +32,10 @@ const report = {
 			accounts: [
 				{
 					previous: [{ count: 100, sum: { visits: 50 } }],
-					hourly: [{ count: 120, sum: { visits: 40 }, dimensions: { datetimeHour: hourOf(0) } }],
+					hourly: [
+						{ count: 0, sum: { visits: 0 }, avg: { sampleInterval: 10 }, dimensions: { datetimeHour: hourOf(20) } },
+						{ count: 120, sum: { visits: 40 }, avg: { sampleInterval: 1 }, dimensions: { datetimeHour: hourOf(0) } },
+					],
 					pages: [
 						{ count: 80, dimensions: { requestPath: "/" } },
 						{ count: 20, dimensions: { requestPath: "/about" } },
@@ -224,6 +227,15 @@ describe("report page", () => {
 		expect(menu.items.map((item: any) => item.value)).toEqual(["pages:7", "pages:30", "pages:90"]);
 	});
 
+	it("says nothing about estimates when Cloudflare counted exactly", async () => {
+		await connectedHost();
+		const exact = structuredClone(report);
+		exact.data.viewer.accounts[0]!.hourly = [{ count: 120, sum: { visits: 40 }, avg: { sampleInterval: 1 }, dimensions: { datetimeHour: hourOf(0) } }];
+		await respond(exact);
+		const page = await host!.admin.act("/report", "show", { value: "overview:7" });
+		expect(findBlocks(page.blocks, "context")).toEqual([]);
+	});
+
 	it("ignores a value it did not send", async () => {
 		await connectedHost();
 		const page = await host!.admin.act("/report", "show", { value: "pages:365" });
@@ -252,6 +264,10 @@ describe("report page", () => {
 		const tab = findBlock(page.blocks, "tab");
 		expect(tab.panels[1].blocks[0].rows).toEqual([{ name: "スマートフォン", value: 90 }]);
 		expect(tab.panels[2].blocks[0].rows).toEqual([{ name: "日本", value: 110 }]);
+		expect(page.blocks.at(-1)).toEqual({
+			type: "context",
+			text: "Cloudflare は7日より前のデータを1/10に間引いて保存しているため、この期間の数値は推定値です。",
+		});
 	});
 
 	it("shows the API's reason when Cloudflare rejects the request", async () => {

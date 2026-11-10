@@ -18,6 +18,8 @@ export interface Summary {
 	/** The same number of days just before the reported period. */
 	previous: Totals;
 	daily: Array<{ day: Day } & Totals>;
+	/** Cloudflare answered from a 1-in-N sample; 1 means the counts are exact. */
+	sampleInterval: number;
 }
 
 export interface Report extends Summary {
@@ -40,7 +42,7 @@ const ENDPOINT = "https://api.cloudflare.com/client/v4/graphql";
 // so the widget asks for two and only the report pages ask for the breakdowns.
 const SUMMARY_NODES = `
 	previous: rumPageloadEventsAdaptiveGroups(limit: 1, filter: $previous) { count sum { visits } }
-	hourly: rumPageloadEventsAdaptiveGroups(limit: 5000, filter: $current, orderBy: [datetimeHour_ASC]) { count sum { visits } dimensions { datetimeHour } }`;
+	hourly: rumPageloadEventsAdaptiveGroups(limit: 5000, filter: $current, orderBy: [datetimeHour_ASC]) { count sum { visits } avg { sampleInterval } dimensions { datetimeHour } }`;
 
 const BREAKDOWN_NODES = `
 	pages: rumPageloadEventsAdaptiveGroups(limit: 100, filter: $current, orderBy: [count_DESC]) { count dimensions { requestPath } }
@@ -57,6 +59,7 @@ const query = (nodes: string) => `query Report($account: string!, $current: Acco
 interface Group {
 	count?: number;
 	sum?: { visits: number };
+	avg?: { sampleInterval: number };
 	dimensions?: Record<string, string>;
 }
 
@@ -128,6 +131,7 @@ function summarize(account: Groups, dayList: Day[], timeZone: string): Summary {
 		},
 		previous: { pageViews: previous?.count ?? 0, visits: previous?.sum?.visits ?? 0 },
 		daily,
+		sampleInterval: Math.round(Math.max(1, ...(account.hourly ?? []).map((group) => group.avg?.sampleInterval ?? 1))),
 	};
 }
 

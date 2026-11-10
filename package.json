@@ -1,6 +1,6 @@
 {
 	"name": "@chiji1108/emdash-plugin-cloudflare-analytics",
-	"version": "0.5.1",
+	"version": "0.6.0",
 	"description": "Lightweight Cloudflare Web Analytics in the EmDash admin. No cron, no sync, runs on Workers Free.",
 	"keywords": [
 		"emdash",

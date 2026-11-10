@@ -14,7 +14,7 @@ const WIDGET_PAGE = "widget:overview";
 // by everyone using the same token, so a result is reused for a few minutes.
 const CACHE_MS = 5 * 60_000;
 // Bump when the cached report's shape changes, so an upgrade never reads an old one.
-const CACHE_VERSION = 2;
+const CACHE_VERSION = 3;
 
 async function cached<T>(ctx: PluginContext, key: string, load: () => Promise<T>): Promise<T> {
 	const hit = await ctx.kv.get<{ fetchedAt: number; value: T }>(key);
