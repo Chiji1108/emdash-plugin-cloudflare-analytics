@@ -54,6 +54,10 @@ function pageLabel(path: string, pages: Pages, { messages }: View): string {
 	return name ? `${name}  ${readablePath(path)}` : readablePath(path);
 }
 
+function openLink(path: string, siteUrl: string, { messages }: View) {
+	return { type: "link" as const, label: messages.open, target: { kind: "external" as const, url: new URL(path, siteUrl).href } };
+}
+
 function trendOf(change: number): StatItem["trend"] {
 	return change > 0 ? "up" : change < 0 ? "down" : "neutral";
 }
@@ -301,7 +305,7 @@ export function pagesPage(report: Report, pages: Pages, siteUrl: string, days: R
 					...(content && {
 						cms: { type: "link", label: messages.editInCms, target: { kind: "content", ...content } },
 					}),
-					open: { type: "link", label: messages.open, target: { kind: "external", url: new URL(page.path, siteUrl).href } },
+					open: openLink(page.path, siteUrl, view),
 				};
 			}),
 			empty_text: messages.empty,

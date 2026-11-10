@@ -1,6 +1,6 @@
 {
 	"name": "@chiji1108/emdash-plugin-cloudflare-analytics",
-	"version": "0.5.0",
+	"version": "0.5.1",
 	"description": "Cloudflare Web Analytics in the EmDash admin",
 	"keywords": [
 		"emdash",

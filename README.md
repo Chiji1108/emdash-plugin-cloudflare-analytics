@@ -59,6 +59,18 @@ The plugin queries the `rumPageloadEventsAdaptiveGroups` dataset of the [GraphQL
 - Web Analytics records paths, not page names. The plugin learns a page's name from its title the next time the site renders it, and only for paths the report has listed, so the names fill in over the first hour or so after installing. Until then the report shows the path.
 - Days are grouped from hourly data. In a time zone whose offset is not a whole hour, such as `Asia/Kolkata`, a day's boundary can be off by up to 30 minutes.
 
+## Alternatives
+
+[@eisbachcode.de/analytics](https://plugins.emdashcms.com/plugins/@eisbachcode.de/analytics) also brings Cloudflare Web Analytics into EmDash, with a different design. Pick by what you need:
+
+| | This plugin | @eisbachcode.de/analytics |
+| --- | --- | --- |
+| Numbers | Read live from Cloudflare on each load (reused for 5 minutes) | Synced daily into its own store, so older days stay exact instead of sampled |
+| Per entry | Page list with names and a link to each CMS entry | Views per entry, an Analytics panel in the entry editor, MCP tools |
+| Page names | Learned from each page's title, so static pages get names too | CMS entries, matched through each collection's URL pattern |
+| Setup | Four settings; no cron, runs on Workers Free in process | Needs a Cron Trigger; the author recommends Workers Paid |
+| Languages | English and Japanese | English |
+
 ## Develop
 
 ```sh
