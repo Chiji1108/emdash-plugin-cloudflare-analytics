@@ -1,59 +1,157 @@
 import type { Block, StatItem } from "@emdash-cms/blocks/server";
 
-import type { Report, Summary, Totals } from "./cloudflare.js";
+import type { Report, Summary } from "./cloudflare.js";
 import type { Messages } from "./messages.js";
 
 export const RANGES = [7, 30, 90] as const;
 export type Range = (typeof RANGES)[number];
 
-export const RANGE_ACTION = "range";
+export type Section = "overview" | "pages";
+
+/** Every control on the page sends this action with a `section:days` value. */
+export const SHOW_ACTION = "show";
+
+export function showValue(section: Section, days: Range): string {
+	return `${section}:${days}`;
+}
+
+export function parseShowValue(value: unknown): { section: Section; days: Range } | null {
+	const [section, days] = String(value).split(":");
+	const range = RANGES.find((range) => String(range) === days);
+	if ((section !== "overview" && section !== "pages") || !range) return null;
+	return { section, days: range };
+}
+
+export const REPORT_PAGE = "/report";
+
+const TOP_PAGES = 5;
 
 interface View {
 	messages: Messages;
 	locale: string;
 }
 
-function stat(label: string, key: keyof Totals, report: Summary, { messages, locale }: View): StatItem {
-	const value = report.totals[key];
-	const before = report.previous[key];
-	if (before === 0) {
-		return { label, value: value.toLocaleString(locale), description: messages.noComparison(report.days) };
+/** The relative change from `before` to `now`, or null when there is nothing to compare with. */
+function changeOf(now: number, before: number): number | null {
+	return before === 0 ? null : (now - before) / before;
+}
+
+/** Shows `/news/%E3%81%82` as `/news/あ`. */
+function readablePath(path: string): string {
+	try {
+		return decodeURI(path);
+	} catch {
+		return path;
 	}
-	const change = (value - before) / before;
-	const percent = new Intl.NumberFormat(locale, { style: "percent", signDisplay: "exceptZero" }).format(change);
+}
+
+function trendOf(change: number): StatItem["trend"] {
+	return change > 0 ? "up" : change < 0 ? "down" : "neutral";
+}
+
+function percent(change: number, locale: string, signDisplay: "exceptZero" | "never") {
+	return new Intl.NumberFormat(locale, {
+		style: "percent",
+		minimumFractionDigits: 1,
+		maximumFractionDigits: 1,
+		signDisplay,
+	}).format(change);
+}
+
+function stat(label: string, value: string, change: number | null, days: number, { messages, locale }: View): StatItem {
+	if (change === null) return { label, value, description: messages.noComparison(days) };
 	return {
 		label,
-		value: value.toLocaleString(locale),
-		description: messages.comparedWith(percent, report.days),
-		trend: change > 0 ? "up" : change < 0 ? "down" : "neutral",
+		value,
+		description: messages.comparedWith(percent(change, locale, "exceptZero"), days),
+		trend: trendOf(change),
 	};
 }
 
-function stats(report: Summary, view: View): Block {
+/** Studio's section links and period picker, in one row. */
+function toolbar(section: Section, days: Range, { messages }: View): Block {
+	const sectionButton = (target: Section, label: string) => ({
+		type: "button" as const,
+		action_id: SHOW_ACTION,
+		label,
+		value: showValue(target, days),
+		style: target === section ? ("primary" as const) : ("secondary" as const),
+	});
 	return {
-		type: "stats",
-		items: [stat(view.messages.pageViews, "pageViews", report, view), stat(view.messages.visits, "visits", report, view)],
+		type: "actions",
+		elements: [
+			sectionButton("overview", messages.overview),
+			sectionButton("pages", messages.pagesTitle),
+			{
+				type: "menu",
+				action_id: SHOW_ACTION,
+				label: messages.lastDays(days),
+				items: RANGES.map((range) => ({ label: messages.lastDays(range), value: showValue(section, range) })),
+				style: "secondary",
+			},
+		],
 	};
 }
 
-function chart(report: Summary, { messages }: View, height: number): Block {
+function visitsChart(report: Summary, { messages }: View, height: number): Block {
 	// Noon UTC keeps each point on its own date in every browser time zone the chart may render in.
 	const at = (day: string) => Date.parse(`${day}T12:00:00Z`);
 	return {
 		type: "chart",
 		config: {
 			chart_type: "timeseries",
-			style: "bar",
+			style: "line",
+			gradient: true,
 			height,
-			series: [
-				{ name: messages.pageViews, data: report.daily.map((row) => [at(row.day), row.pageViews]) },
-				{ name: messages.visits, data: report.daily.map((row) => [at(row.day), row.visits]) },
-			],
+			series: [{ name: messages.visits, data: report.daily.map((row) => [at(row.day), row.visits]) }],
 		},
 	};
 }
 
-function table(label: string, key: string, rows: Array<{ name: string; value: number }>, valueLabel: string, view: View): Block {
+function visitsStat(report: Summary, view: View): Block {
+	const { totals, previous, days } = report;
+	return {
+		type: "stats",
+		items: [stat(view.messages.siteVisits, totals.visits.toLocaleString(view.locale), changeOf(totals.visits, previous.visits), days, view)],
+	};
+}
+
+function insights(report: Report, view: View): Block {
+	const { messages, locale } = view;
+	const { totals, previous, days } = report;
+	const pageViewsChange = changeOf(totals.pageViews, previous.pageViews);
+	const pageViewsLabel =
+		pageViewsChange === null
+			? messages.sitePageViews
+			: pageViewsChange > 0
+				? messages.pageViewsRose
+				: pageViewsChange < 0
+					? messages.pageViewsFell
+					: messages.pageViewsSteady;
+	const perDay = (total: number) => Math.round(total / days);
+	const items = [
+		stat(pageViewsLabel, totals.pageViews.toLocaleString(locale), pageViewsChange, days, view),
+		stat(
+			messages.dailyPageViews,
+			messages.perDay(perDay(totals.pageViews).toLocaleString(locale)),
+			changeOf(perDay(totals.pageViews), perDay(previous.pageViews)),
+			days,
+			view,
+		),
+	];
+
+	// Studio's "getting attention" card: the page whose views grew the most.
+	const rising = report.pages
+		.map((page) => ({ page, change: changeOf(page.pageViews, page.previousPageViews) }))
+		.filter((row): row is { page: Report["pages"][number]; change: number } => row.change !== null && row.change > 0)
+		.sort((a, b) => b.change - a.change)[0];
+	if (rising) {
+		items.push(stat(messages.trending(readablePath(rising.page.path)), rising.page.pageViews.toLocaleString(locale), rising.change, days, view));
+	}
+	return { type: "stats", items };
+}
+
+function breakdownTable(key: string, label: string, valueLabel: string, rows: Array<{ name: string; value: number }>, view: View): Block {
 	return {
 		type: "table",
 		block_id: key,
@@ -67,7 +165,7 @@ function table(label: string, key: string, rows: Array<{ name: string; value: nu
 	};
 }
 
-export function reportPage(report: Report, view: View): Block[] {
+function breakdowns(report: Report, view: View): Block {
 	const { messages, locale } = view;
 	const regions = new Intl.DisplayNames(locale, { type: "region" });
 	const regionName = (code: string) => {
@@ -77,65 +175,117 @@ export function reportPage(report: Report, view: View): Block[] {
 			return code;
 		}
 	};
+	return {
+		type: "accordion",
+		label: messages.more,
+		blocks: [
+			{
+				type: "tab",
+				panels: [
+					{
+						label: messages.referrers,
+						blocks: [
+							breakdownTable(
+								"referrers",
+								messages.source,
+								messages.visits,
+								report.referrers.map((row) => ({ name: row.host || messages.direct, value: row.visits })),
+								view,
+							),
+						],
+					},
+					{
+						label: messages.devices,
+						blocks: [
+							breakdownTable(
+								"devices",
+								messages.device,
+								messages.pageViews,
+								report.devices.map((row) => ({ name: messages.deviceTypes[row.type] ?? row.type, value: row.pageViews })),
+								view,
+							),
+						],
+					},
+					{
+						label: messages.countries,
+						blocks: [
+							breakdownTable(
+								"countries",
+								messages.country,
+								messages.pageViews,
+								report.countries.map((row) => ({ name: regionName(row.code), value: row.pageViews })),
+								view,
+							),
+						],
+					},
+				],
+			},
+		],
+	};
+}
 
+export function reportPage(report: Report, days: Range, view: View): Block[] {
+	const { messages, locale } = view;
+	const top = report.pages.slice(0, TOP_PAGES);
+	const max = top[0]?.pageViews ?? 0;
 	return [
 		{ type: "header", text: messages.title },
+		toolbar("overview", days, view),
 		{
-			type: "actions",
-			elements: RANGES.map((days) => ({
-				type: "button",
-				action_id: RANGE_ACTION,
-				label: messages.lastDays(days),
-				value: days,
-				style: days === report.days ? "primary" : "secondary",
-			})),
-		},
-		stats(report, view),
-		chart(report, view, 320),
-		{
-			type: "tab",
-			panels: [
-				{
-					label: messages.pages,
-					blocks: [table(messages.path, "pages", report.pages.map((row) => ({ name: row.path, value: row.pageViews })), messages.pageViews, view)],
-				},
-				{
-					label: messages.referrers,
-					blocks: [
-						table(
-							messages.source,
-							"referrers",
-							report.referrers.map((row) => ({ name: row.host || messages.direct, value: row.visits })),
-							messages.visits,
-							view,
-						),
-					],
-				},
-				{
-					label: messages.devices,
-					blocks: [
-						table(
-							messages.device,
-							"devices",
-							report.devices.map((row) => ({ name: messages.deviceTypes[row.type] ?? row.type, value: row.pageViews })),
-							messages.pageViews,
-							view,
-						),
-					],
-				},
-				{
-					label: messages.countries,
-					blocks: [
-						table(
-							messages.country,
-							"countries",
-							report.countries.map((row) => ({ name: regionName(row.code), value: row.pageViews })),
-							messages.pageViews,
-							view,
-						),
-					],
-				},
+			type: "columns",
+			columns: [
+				[visitsStat(report, view), visitsChart(report, view, 280)],
+				[
+					{ type: "section", text: messages.pageViewsByPage },
+					...(top.length
+						? top.map(
+								(page): Block => ({
+									type: "meter",
+									label: readablePath(page.path),
+									value: page.pageViews,
+									max,
+									custom_value: page.pageViews.toLocaleString(locale),
+								}),
+							)
+						: [{ type: "context", text: messages.empty } satisfies Block]),
+					{
+						type: "actions",
+						elements: [{ type: "button", action_id: SHOW_ACTION, label: messages.allPages, value: showValue("pages", days) }],
+					},
+				],
 			],
+		},
+		{ type: "header", text: messages.insights(report.days) },
+		insights(report, view),
+		breakdowns(report, view),
+		{ type: "context", text: messages.sampled },
+	];
+}
+
+export function pagesPage(report: Report, days: Range, view: View): Block[] {
+	const { messages, locale } = view;
+	return [
+		{ type: "header", text: messages.title },
+		toolbar("pages", days, view),
+		{
+			type: "table",
+			block_id: "pages",
+			page_action_id: "pages_page",
+			columns: [
+				{ key: "path", label: messages.page },
+				{ key: "pageViews", label: messages.pageViews, format: "number" },
+				{ key: "change", label: messages.change },
+			],
+			rows: report.pages.map((page) => {
+				const change = changeOf(page.pageViews, page.previousPageViews);
+				const arrow = change === null ? "" : change > 0 ? "↑ " : change < 0 ? "↓ " : "";
+				return {
+					path: readablePath(page.path),
+					pageViews: page.pageViews,
+					change: change === null ? messages.newPage : arrow + percent(change, locale, "never"),
+				};
+			}),
+			empty_text: messages.empty,
 		},
 		{ type: "context", text: messages.sampled },
 	];
@@ -144,11 +294,11 @@ export function reportPage(report: Report, view: View): Block[] {
 export function reportWidget(report: Summary, view: View): Block[] {
 	return [
 		{ type: "context", text: view.messages.lastDays(report.days) },
-		stats(report, view),
-		chart(report, view, 180),
+		visitsStat(report, view),
+		visitsChart(report, view, 180),
 		{
 			type: "actions",
-			elements: [{ type: "link", label: view.messages.openReport, target: { kind: "plugin-page", path: "/report" } }],
+			elements: [{ type: "link", label: view.messages.openReport, target: { kind: "plugin-page", path: REPORT_PAGE } }],
 		},
 	];
 }

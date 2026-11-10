@@ -33,7 +33,15 @@ const report = {
 				{
 					previous: [{ count: 100, sum: { visits: 50 } }],
 					hourly: [{ count: 120, sum: { visits: 40 }, dimensions: { datetimeHour: hourOf(0) } }],
-					pages: [{ count: 80, dimensions: { requestPath: "/" } }],
+					pages: [
+						{ count: 80, dimensions: { requestPath: "/" } },
+						{ count: 20, dimensions: { requestPath: "/about" } },
+						{ count: 5, dimensions: { requestPath: "/news/%E3%81%8A%E7%9F%A5%E3%82%89%E3%81%9B" } },
+					],
+					previousPages: [
+						{ count: 100, dimensions: { requestPath: "/" } },
+						{ count: 8, dimensions: { requestPath: "/about" } },
+					],
 					referrers: [
 						{ sum: { visits: 30 }, dimensions: { refererHost: "" } },
 						{ sum: { visits: 10 }, dimensions: { refererHost: "www.google.com" } },
@@ -61,14 +69,21 @@ function sentVariables() {
 	return sentBody().variables;
 }
 
-function findBlock<T extends { type: string }>(blocks: T[], type: string): any {
-	for (const block of blocks as any[]) {
-		if (block.type === type) return block;
-		for (const panel of block.panels ?? []) {
-			const found = findBlock(panel.blocks, type);
-			if (found) return found;
-		}
-	}
+function allBlocks(blocks: any[]): any[] {
+	return blocks.flatMap((block) => [
+		block,
+		...allBlocks(block.blocks ?? []),
+		...allBlocks((block.columns ?? []).flat()),
+		...allBlocks((block.panels ?? []).flatMap((panel: any) => panel.blocks)),
+	]);
+}
+
+function findBlocks(blocks: any[], type: string): any[] {
+	return allBlocks(blocks).filter((block) => block.type === type);
+}
+
+function findBlock(blocks: any[], type: string): any {
+	return findBlocks(blocks, type)[0];
 }
 
 describe("report page", () => {
@@ -86,6 +101,7 @@ describe("report page", () => {
 
 		const request = host!.http.requests()[0]!;
 		expect(request.headers.authorization).toBe("Bearer token-1");
+		expect(request.headers["x-rate-limit-type"]).toBe("account-based");
 		const variables = sentVariables();
 		expect(variables.account).toBe("account-1");
 		expect(variables.current).toMatchObject({ siteTag: "site-1", bot: 0 });
@@ -97,13 +113,46 @@ describe("report page", () => {
 		expect(previousSpan).toBe(span);
 		expect(Date.parse(variables.current.datetime_geq) - Date.parse(variables.previous.datetime_geq)).toBe(30 * 86_400_000);
 
-		expect(findBlock(page.blocks, "stats").items).toMatchObject([
-			{ label: "Page views", value: "120", trend: "up", description: "+20% vs the previous 30 days" },
-			{ label: "Visits", value: "40", trend: "down", description: "-20% vs the previous 30 days" },
+		const [visits, insights] = findBlocks(page.blocks, "stats");
+		expect(visits.items).toMatchObject([
+			{ label: "Site visits", value: "40", trend: "down", description: "-20.0% vs the previous 30 days" },
+		]);
+		expect(insights.items).toMatchObject([
+			{ label: "Site page views went up", value: "120", trend: "up", description: "+20.0% vs the previous 30 days" },
+			{ label: "Average page views per day", value: "4 / day", trend: "up" },
+			{ label: "/about is getting attention", value: "20", trend: "up", description: "+150.0% vs the previous 30 days" },
 		]);
 		const series = findBlock(page.blocks, "chart").config.series;
+		expect(series).toHaveLength(1);
 		expect(series[0].data).toHaveLength(30);
-		expect(series[0].data.at(-1)[1]).toBe(120);
+		expect(series[0].data.at(-1)[1]).toBe(40);
+	});
+
+	it("draws a bar for each of the top pages", async () => {
+		await connectedHost();
+		await respond(report);
+		const page = await host!.admin.loadPage("/report");
+		expect(findBlocks(page.blocks, "meter")).toMatchObject([
+			{ label: "/", value: 80, max: 80, custom_value: "80" },
+			{ label: "/about", value: 20, max: 80 },
+			{ label: "/news/お知らせ", value: 5, max: 80 },
+		]);
+	});
+
+	it("lists every page with its change", async () => {
+		await connectedHost();
+		await respond(report);
+		const page = await host!.admin.act("/report", "show", { value: "pages:30" });
+		expect(findBlock(page.blocks, "table").rows).toEqual([
+			{ path: "/", pageViews: 80, change: "↓ 20.0%" },
+			{ path: "/about", pageViews: 20, change: "↑ 150.0%" },
+			{ path: "/news/お知らせ", pageViews: 5, change: "New" },
+		]);
+		expect(findBlock(page.blocks, "actions").elements.map((element: any) => element.style)).toEqual([
+			"secondary",
+			"primary",
+			"secondary",
+		]);
 	});
 
 	it("lists referrers without internal navigation", async () => {
@@ -111,24 +160,29 @@ describe("report page", () => {
 		await respond(report);
 		const page = await host!.admin.loadPage("/report");
 		const tab = findBlock(page.blocks, "tab");
-		const referrers = tab.panels[1].blocks[0];
+		const referrers = tab.panels[0].blocks[0];
 		expect(referrers.rows).toEqual([
 			{ name: "Direct or unknown", value: 30 },
 			{ name: "www.google.com", value: 10 },
 		]);
 	});
 
-	it("switches the period", async () => {
+	it("switches the period and keeps the section", async () => {
 		await connectedHost();
 		await respond(report);
-		const page = await host!.admin.act("/report", "range", { value: 7 });
+		const page = await host!.admin.act("/report", "show", { value: "pages:7" });
 		const span = Date.parse(sentVariables().current.datetime_lt) - Date.parse(sentVariables().current.datetime_geq);
 		expect(span).toBeLessThanOrEqual(7 * 86_400_000);
-		expect(findBlock(page.blocks, "actions").elements.map((button: any) => button.style)).toEqual([
-			"primary",
-			"secondary",
-			"secondary",
-		]);
+		const menu = findBlock(page.blocks, "actions").elements[2];
+		expect(menu).toMatchObject({ type: "menu", label: "Last 7 days" });
+		expect(menu.items.map((item: any) => item.value)).toEqual(["pages:7", "pages:30", "pages:90"]);
+	});
+
+	it("ignores a value it did not send", async () => {
+		await connectedHost();
+		const page = await host!.admin.act("/report", "show", { value: "pages:365" });
+		expect(page.blocks).toEqual([]);
+		expect(host!.http.requests()).toHaveLength(0);
 	});
 
 	it("reuses a recent result instead of asking Cloudflare again", async () => {
@@ -137,17 +191,21 @@ describe("report page", () => {
 		await host!.admin.loadPage("/report");
 		const again = await host!.admin.loadPage("/report");
 		expect(host!.http.requests()).toHaveLength(1);
-		expect(findBlock(again.blocks, "stats").items[0].value).toBe("120");
+		expect(findBlock(again.blocks, "stats").items[0].value).toBe("40");
 	});
 
 	it("speaks Japanese to a Japanese admin", async () => {
 		await connectedHost();
 		await respond(report);
 		const page = await host!.admin.loadPage("/report", { locale: "ja" });
-		expect(findBlock(page.blocks, "header").text).toBe("アクセス解析");
+		expect(findBlock(page.blocks, "header").text).toBe("アナリティクス");
+		expect(findBlock(page.blocks, "stats").items[0]).toMatchObject({
+			label: "サイト全体の訪問数",
+			description: "その前の30日間と比べて -20.0%",
+		});
 		const tab = findBlock(page.blocks, "tab");
-		expect(tab.panels[2].blocks[0].rows).toEqual([{ name: "スマートフォン", value: 90 }]);
-		expect(tab.panels[3].blocks[0].rows).toEqual([{ name: "日本", value: 110 }]);
+		expect(tab.panels[1].blocks[0].rows).toEqual([{ name: "スマートフォン", value: 90 }]);
+		expect(tab.panels[2].blocks[0].rows).toEqual([{ name: "日本", value: 110 }]);
 	});
 
 	it("shows the API's reason when Cloudflare rejects the request", async () => {

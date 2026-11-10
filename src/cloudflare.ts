@@ -21,7 +21,8 @@ export interface Summary {
 }
 
 export interface Report extends Summary {
-	pages: Array<{ path: string; pageViews: number }>;
+	/** Most viewed first, with the views the same path had in the previous period. */
+	pages: Array<{ path: string; pageViews: number; previousPageViews: number }>;
 	/** An empty host means the visit had no referrer. */
 	referrers: Array<{ host: string; visits: number }>;
 	devices: Array<{ type: string; pageViews: number }>;
@@ -36,13 +37,14 @@ export type Fetch = (url: string, init: RequestInit) => Promise<Response>;
 const ENDPOINT = "https://api.cloudflare.com/client/v4/graphql";
 
 // Cloudflare counts every dataset in a request against its 300-per-5-minutes budget,
-// so the widget asks for two and only the report page asks for the breakdowns.
+// so the widget asks for two and only the report pages ask for the breakdowns.
 const SUMMARY_NODES = `
 	previous: rumPageloadEventsAdaptiveGroups(limit: 1, filter: $previous) { count sum { visits } }
 	hourly: rumPageloadEventsAdaptiveGroups(limit: 5000, filter: $current, orderBy: [datetimeHour_ASC]) { count sum { visits } dimensions { datetimeHour } }`;
 
 const BREAKDOWN_NODES = `
-	pages: rumPageloadEventsAdaptiveGroups(limit: 10, filter: $current, orderBy: [count_DESC]) { count dimensions { requestPath } }
+	pages: rumPageloadEventsAdaptiveGroups(limit: 100, filter: $current, orderBy: [count_DESC]) { count dimensions { requestPath } }
+	previousPages: rumPageloadEventsAdaptiveGroups(limit: 1000, filter: $previous, orderBy: [count_DESC]) { count dimensions { requestPath } }
 	referrers: rumPageloadEventsAdaptiveGroups(limit: 20, filter: $current, orderBy: [sum_visits_DESC]) { sum { visits } dimensions { refererHost } }
 	devices: rumPageloadEventsAdaptiveGroups(limit: 5, filter: $current, orderBy: [count_DESC]) { count dimensions { deviceType } }
 	countries: rumPageloadEventsAdaptiveGroups(limit: 10, filter: $current, orderBy: [count_DESC]) { count dimensions { countryName } }`;
@@ -84,7 +86,13 @@ async function request(fetch: Fetch, connection: Connection, days: number, now: 
 	try {
 		response = await fetch(ENDPOINT, {
 			method: "POST",
-			headers: { Authorization: `Bearer ${connection.apiToken}`, "Content-Type": "application/json" },
+			headers: {
+				Authorization: `Bearer ${connection.apiToken}`,
+				"Content-Type": "application/json",
+				// By default the query budget is shared by every token of the user who made
+				// this one; account-based limits give the account its own budget.
+				"X-Rate-Limit-Type": "account-based",
+			},
 			body: JSON.stringify({
 				query: query(nodes),
 				variables: { account: connection.accountId, current: filter(start, now), previous: filter(previousStart, previousEnd) },
@@ -132,9 +140,14 @@ export async function loadSummary(fetch: Fetch, connection: Connection, days: nu
 /** The summary plus the top pages, referrers, devices and countries. */
 export async function loadReport(fetch: Fetch, connection: Connection, days: number, now = new Date()): Promise<Report> {
 	const { account, dayList } = await request(fetch, connection, days, now, SUMMARY_NODES + BREAKDOWN_NODES);
+	const previousViews = new Map((account.previousPages ?? []).map((group) => [group.dimensions!.requestPath!, group.count ?? 0]));
 	return {
 		...summarize(account, dayList, connection.timeZone),
-		pages: (account.pages ?? []).map((group) => ({ path: group.dimensions!.requestPath!, pageViews: group.count ?? 0 })),
+		pages: (account.pages ?? []).map((group) => ({
+			path: group.dimensions!.requestPath!,
+			pageViews: group.count ?? 0,
+			previousPageViews: previousViews.get(group.dimensions!.requestPath!) ?? 0,
+		})),
 		// Navigation inside the site carries the site's own host but counts no visit.
 		referrers: (account.referrers ?? [])
 			.filter((group) => (group.sum?.visits ?? 0) > 0)

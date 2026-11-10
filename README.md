@@ -2,7 +2,8 @@
 
 An [EmDash CMS](https://emdashcms.com) plugin that shows your site's [Cloudflare Web Analytics](https://developers.cloudflare.com/web-analytics/) in the admin, so editors can see how the site is doing without a Cloudflare login.
 
-- **Analytics page:** page views and visits for the last 7, 30 or 90 days, compared with the period before. It also shows a daily chart and the top pages, referrers, devices and countries.
+- **Overview:** site visits for the last 7, 30 or 90 days with a daily chart, the top pages, and insights on page views and the fastest-growing page, each compared with the period before. Referrers, devices and countries are one click away.
+- **All pages:** every page's views and its change from the previous period.
 - **Dashboard widget:** the last 7 days at a glance.
 - **English and Japanese:** the page and widget follow the admin's language.
 
@@ -48,7 +49,7 @@ Open **Plugins → cloudflare-analytics → Settings** in the admin and fill in:
 The plugin queries the `rumPageloadEventsAdaptiveGroups` dataset of the [GraphQL Analytics API](https://developers.cloudflare.com/analytics/graphql-api/) and leaves out traffic Cloudflare marks as bots.
 
 - Cloudflare keeps Web Analytics data for six months. It samples older data, so the numbers are estimates, as they are in the Cloudflare dashboard.
-- Cloudflare allows 300 dataset queries per 5 minutes. The widget uses 2 per load and the analytics page 6. Each result is reused for 5 minutes, so heavy dashboard traffic stays well inside the limit.
+- The GraphQL API limits queries by cost, about 300 per 5 minutes. The plugin asks for [account-based limits](https://developers.cloudflare.com/analytics/graphql-api/account-based-rate-limiting/), so its budget is not shared with your other tokens. The widget queries 2 datasets per load and the analytics page 7, and each result is reused for 5 minutes.
 - Days are grouped from hourly data. In a time zone whose offset is not a whole hour, such as `Asia/Kolkata`, a day's boundary can be off by up to 30 minutes.
 
 ## Develop
