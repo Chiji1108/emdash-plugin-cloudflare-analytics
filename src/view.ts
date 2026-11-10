@@ -58,10 +58,13 @@ function openLink(path: string, siteUrl: string, { messages }: View) {
 	return { type: "link" as const, label: messages.open, target: { kind: "external" as const, url: new URL(path, siteUrl).href } };
 }
 
-/** Says how the numbers were estimated, or nothing when they are exact. */
-function sampledNote({ days, sampleInterval }: Summary, { messages }: View): Block[] {
-	if (sampleInterval <= 1) return [];
-	return [{ type: "context", text: days > 7 ? messages.sampledOlder(sampleInterval) : messages.sampled(sampleInterval) }];
+/**
+ * Says how the numbers were estimated, or nothing when they are exact. The rate is
+ * whatever Cloudflare reported for this answer, so the note stays true if Cloudflare
+ * changes how it samples.
+ */
+function sampledNote({ sampleInterval }: Summary, { messages }: View): Block[] {
+	return sampleInterval > 1 ? [{ type: "context", text: messages.sampled(sampleInterval) }] : [];
 }
 
 function trendOf(change: number): StatItem["trend"] {

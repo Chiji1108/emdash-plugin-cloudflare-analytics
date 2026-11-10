@@ -42,9 +42,6 @@ const en = {
 	openSettings: "Open settings",
 	invalidTimeZone: (timeZone: string) => `"${timeZone}" is not a time zone. Use a name such as Asia/Tokyo.`,
 	loadFailed: "Could not load Cloudflare Web Analytics",
-	// Cloudflare keeps the last 7 days unsampled and older data as a sample.
-	sampledOlder: (interval: number) =>
-		`Cloudflare keeps data older than 7 days as a 1-in-${interval} sample, so these numbers are estimates.`,
 	sampled: (interval: number) => `Cloudflare answered from a 1-in-${interval} sample, so these numbers are estimates.`,
 };
 
@@ -94,8 +91,6 @@ const ja: Messages = {
 	openSettings: "設定を開く",
 	invalidTimeZone: (timeZone) => `「${timeZone}」はタイムゾーンではありません。Asia/Tokyo のような名前を入れてください。`,
 	loadFailed: "Cloudflare Web Analytics のデータを読み込めませんでした",
-	sampledOlder: (interval) =>
-		`Cloudflare は7日より前のデータを1/${interval}に間引いて保存しているため、この期間の数値は推定値です。`,
 	sampled: (interval) => `Cloudflare が1/${interval}に間引いたデータから集計したため、数値は推定値です。`,
 };
 

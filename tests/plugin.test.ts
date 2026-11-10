@@ -266,7 +266,7 @@ describe("report page", () => {
 		expect(tab.panels[2].blocks[0].rows).toEqual([{ name: "日本", value: 110 }]);
 		expect(page.blocks.at(-1)).toEqual({
 			type: "context",
-			text: "Cloudflare は7日より前のデータを1/10に間引いて保存しているため、この期間の数値は推定値です。",
+			text: "Cloudflare が1/10に間引いたデータから集計したため、数値は推定値です。",
 		});
 	});
 

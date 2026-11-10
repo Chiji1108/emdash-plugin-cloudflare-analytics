@@ -62,7 +62,7 @@ Open **Plugins → cloudflare-analytics → Settings** in the admin and fill in:
 
 The plugin queries the `rumPageloadEventsAdaptiveGroups` dataset of the [GraphQL Analytics API](https://developers.cloudflare.com/analytics/graphql-api/) and leaves out traffic Cloudflare marks as bots.
 
-- Cloudflare keeps Web Analytics data for six months. Only the last 7 days are kept exactly; older data is kept as a sample (1 in 10 on the sites tested), so 30- and 90-day numbers are estimates in steps of 10, as they are in the Cloudflare dashboard. The page says so, with the sample rate, whenever Cloudflare answered from a sample.
+- Cloudflare keeps Web Analytics data for six months. When it answers from a sample, the page says so with the rate Cloudflare reported. As of November 2026, Cloudflare kept the last 7 days exactly and older data as a 1-in-10 sample, so 30- and 90-day numbers came in steps of 10, as they do in the Cloudflare dashboard.
 - The GraphQL API limits queries by cost, about 300 per 5 minutes. The plugin asks for [account-based limits](https://developers.cloudflare.com/analytics/graphql-api/account-based-rate-limiting/), so its budget is not shared with your other tokens. The widget queries 2 datasets per load and the analytics page 7, and each result is reused for 5 minutes.
 - Web Analytics records paths, not page names. The plugin learns a page's name from its title the next time the site renders it, and only for paths the report has listed, so the names fill in over the first hour or so after installing. Until then the report shows the path.
 - Days are grouped from hourly data. In a time zone whose offset is not a whole hour, such as `Asia/Kolkata`, a day's boundary can be off by up to 30 minutes.
