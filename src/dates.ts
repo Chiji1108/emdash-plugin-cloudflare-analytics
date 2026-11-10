@@ -45,7 +45,10 @@ function offsetMs(instant: Date, timeZone: string): number {
 /** The instant a day starts in the given time zone. */
 export function startOf(day: Day, timeZone: string): Date {
 	const midnightUtc = Date.parse(`${day}T00:00:00Z`);
-	return new Date(midnightUtc - offsetMs(new Date(midnightUtc), timeZone));
+	// The offset at UTC midnight can differ from the one at local midnight on a
+	// DST day, so measure again at the first estimate.
+	const estimate = midnightUtc - offsetMs(new Date(midnightUtc), timeZone);
+	return new Date(midnightUtc - offsetMs(new Date(estimate), timeZone));
 }
 
 export function addDays(day: Day, days: number): Day {

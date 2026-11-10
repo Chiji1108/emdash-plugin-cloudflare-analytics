@@ -69,7 +69,9 @@ async function request(fetch: Fetch, connection: Connection, days: number, now: 
 	const { timeZone } = connection;
 	const dayList = daysEnding(dayOf(now, timeZone), days);
 	const start = startOf(dayList[0]!, timeZone);
+	// Today is still running, so the previous period gets the same elapsed time.
 	const previousStart = startOf(addDays(dayList[0]!, -days), timeZone);
+	const previousEnd = new Date(previousStart.getTime() + (now.getTime() - start.getTime()));
 	// Bots run the beacon too; Cloudflare's own dashboard leaves them out.
 	const filter = (from: Date, to: Date) => ({
 		siteTag: connection.siteTag,
@@ -78,14 +80,19 @@ async function request(fetch: Fetch, connection: Connection, days: number, now: 
 		bot: 0,
 	});
 
-	const response = await fetch(ENDPOINT, {
-		method: "POST",
-		headers: { Authorization: `Bearer ${connection.apiToken}`, "Content-Type": "application/json" },
-		body: JSON.stringify({
-			query: query(nodes),
-			variables: { account: connection.accountId, current: filter(start, now), previous: filter(previousStart, start) },
-		}),
-	});
+	let response: Response;
+	try {
+		response = await fetch(ENDPOINT, {
+			method: "POST",
+			headers: { Authorization: `Bearer ${connection.apiToken}`, "Content-Type": "application/json" },
+			body: JSON.stringify({
+				query: query(nodes),
+				variables: { account: connection.accountId, current: filter(start, now), previous: filter(previousStart, previousEnd) },
+			}),
+		});
+	} catch (error) {
+		throw new CloudflareError(error instanceof Error ? error.message : String(error));
+	}
 	// A rejected token comes back as HTTP 400 with the reason in `errors`.
 	const body = (await response.json().catch(() => ({}))) as GraphqlBody;
 	if (!body.errors?.length && !response.ok) throw new CloudflareError(`Cloudflare API returned HTTP ${response.status}`);

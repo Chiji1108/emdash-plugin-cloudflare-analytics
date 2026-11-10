@@ -93,7 +93,9 @@ describe("report page", () => {
 		const span = Date.parse(variables.current.datetime_lt) - Date.parse(variables.current.datetime_geq);
 		expect(span).toBeGreaterThan(29 * 86_400_000);
 		expect(span).toBeLessThanOrEqual(30 * 86_400_000);
-		expect(variables.previous.datetime_lt).toBe(variables.current.datetime_geq);
+		const previousSpan = Date.parse(variables.previous.datetime_lt) - Date.parse(variables.previous.datetime_geq);
+		expect(previousSpan).toBe(span);
+		expect(Date.parse(variables.current.datetime_geq) - Date.parse(variables.previous.datetime_geq)).toBe(30 * 86_400_000);
 
 		expect(findBlock(page.blocks, "stats").items).toMatchObject([
 			{ label: "Page views", value: "120", trend: "up", description: "+20% vs the previous 30 days" },
