@@ -143,17 +143,41 @@ describe("report page", () => {
 		await connectedHost();
 		await respond(report);
 		await host!.admin.loadPage("/report");
-		const render = (path: string, pageTitle: string) =>
+		const render = (path: string, pageTitle: string, content?: { collection: string; id: string; slug: string }) =>
 			host!.transport.invokeHook("page:metadata", {
-				page: { url: `https://example.com${path}`, path, locale: null, kind: "custom", pageType: "website", title: `${pageTitle} | Site`, pageTitle, description: null, canonical: null, image: null },
+				page: {
+					url: `https://example.com${path}`,
+					path,
+					locale: null,
+					kind: content ? "content" : "custom",
+					pageType: "website",
+					title: `${pageTitle} | Site`,
+					pageTitle,
+					description: null,
+					canonical: null,
+					image: null,
+					content,
+				},
 			});
 		await render("/about", "About us");
+		await render("/news/%E3%81%8A%E7%9F%A5%E3%82%89%E3%81%9B", "Notice", { collection: "news", id: "01NEWS", slug: "notice" });
 		await render("/wp-login.php", "Not found");
 
 		const page = await host!.admin.loadPage("/report");
-		expect(findBlocks(page.blocks, "meter").map((meter: any) => meter.label)).toEqual(["Home  /", "About us  /about", "/news/お知らせ"]);
-		const titles: Record<string, string | null> = (await host!.inspect.kv.get("state:pageTitles"))!;
-		expect(Object.keys(titles)).not.toContain("/wp-login.php");
+		expect(findBlocks(page.blocks, "meter").map((meter: any) => meter.label)).toEqual([
+			"Home  /",
+			"About us  /about",
+			"Notice  /news/お知らせ",
+		]);
+		const pages: Record<string, unknown> = (await host!.inspect.kv.get("state:pages"))!;
+		expect(Object.keys(pages)).not.toContain("/wp-login.php");
+
+		const list = await host!.admin.act("/report", "show", { value: "pages:30" });
+		expect(findBlock(list.blocks, "table").rows.map((row: any) => row.cms ?? null)).toEqual([
+			null,
+			null,
+			{ type: "link", label: "Edit", target: { kind: "content", collection: "news", id: "01NEWS" } },
+		]);
 		expect(host!.http.requests()).toHaveLength(1);
 	});
 

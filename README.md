@@ -3,13 +3,13 @@
 An [EmDash CMS](https://emdashcms.com) plugin that shows your site's [Cloudflare Web Analytics](https://developers.cloudflare.com/web-analytics/) in the admin, so editors can see how the site is doing without a Cloudflare login.
 
 - **Overview:** site visits for the last 7, 30 or 90 days with a daily chart, the top pages, and insights on page views and the fastest-growing page, each compared with the period before. Referrers, devices and countries are one click away.
-- **All pages:** every page's views and its change from the previous period.
+- **All pages:** every page's views and its change from the previous period, with a link to the editor for pages that show a CMS entry.
 - **Dashboard widget:** the last 7 days at a glance.
 - **English and Japanese:** the page and widget follow the admin's language.
 
 ![The overview: site visits with a daily chart, the top pages, and insight cards](https://raw.githubusercontent.com/Chiji1108/emdash-plugin-cloudflare-analytics/main/docs/overview.png)
 
-![All pages: each page's name, page views and change from the previous period](https://raw.githubusercontent.com/Chiji1108/emdash-plugin-cloudflare-analytics/main/docs/pages.png)
+![All pages: each page's name, page views, change from the previous period and a link to its CMS entry](https://raw.githubusercontent.com/Chiji1108/emdash-plugin-cloudflare-analytics/main/docs/pages.png)
 
 The screenshots use made-up data.
 

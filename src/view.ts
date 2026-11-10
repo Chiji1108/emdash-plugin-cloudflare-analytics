@@ -2,6 +2,7 @@ import type { Block, StatItem } from "@emdash-cms/blocks/server";
 
 import type { Report, Summary } from "./cloudflare.js";
 import type { Messages } from "./messages.js";
+import type { PageInfo } from "./pages.js";
 
 export const RANGES = [7, 30, 90] as const;
 export type Range = (typeof RANGES)[number];
@@ -45,11 +46,11 @@ function readablePath(path: string): string {
 	}
 }
 
-type Titles = Map<string, string>;
+type Pages = Map<string, PageInfo>;
 
 /** Studio's "Name /path" label; the home page's title is usually just the site name. */
-function pageLabel(path: string, titles: Titles, { messages }: View): string {
-	const name = path === "/" ? messages.home : titles.get(path);
+function pageLabel(path: string, pages: Pages, { messages }: View): string {
+	const name = path === "/" ? messages.home : pages.get(path)?.title;
 	return name ? `${name}  ${readablePath(path)}` : readablePath(path);
 }
 
@@ -124,7 +125,7 @@ function visitsStat(report: Summary, view: View): Block {
 	};
 }
 
-function insights(report: Report, titles: Titles, view: View): Block {
+function insights(report: Report, pages: Pages, view: View): Block {
 	const { messages, locale } = view;
 	const { totals, previous, days } = report;
 	const pageViewsChange = changeOf(totals.pageViews, previous.pageViews);
@@ -154,7 +155,7 @@ function insights(report: Report, titles: Titles, view: View): Block {
 		.filter((row): row is { page: Report["pages"][number]; change: number } => row.change !== null && row.change > 0)
 		.sort((a, b) => b.change - a.change)[0];
 	if (rising) {
-		items.push(stat(messages.trending(pageLabel(rising.page.path, titles, view)), rising.page.pageViews.toLocaleString(locale), rising.change, days, view));
+		items.push(stat(messages.trending(pageLabel(rising.page.path, pages, view)), rising.page.pageViews.toLocaleString(locale), rising.change, days, view));
 	}
 	return { type: "stats", items };
 }
@@ -232,7 +233,7 @@ function breakdowns(report: Report, view: View): Block {
 	};
 }
 
-export function reportPage(report: Report, titles: Titles, days: Range, view: View): Block[] {
+export function reportPage(report: Report, pages: Pages, days: Range, view: View): Block[] {
 	const { messages, locale } = view;
 	const top = report.pages.slice(0, TOP_PAGES);
 	const max = top[0]?.pageViews ?? 0;
@@ -249,7 +250,7 @@ export function reportPage(report: Report, titles: Titles, days: Range, view: Vi
 						? top.map(
 								(page): Block => ({
 									type: "meter",
-									label: pageLabel(page.path, titles, view),
+									label: pageLabel(page.path, pages, view),
 									value: page.pageViews,
 									max,
 									custom_value: page.pageViews.toLocaleString(locale),
@@ -264,13 +265,13 @@ export function reportPage(report: Report, titles: Titles, days: Range, view: Vi
 			],
 		},
 		{ type: "header", text: messages.insights(report.days) },
-		insights(report, titles, view),
+		insights(report, pages, view),
 		breakdowns(report, view),
 		{ type: "context", text: messages.sampled },
 	];
 }
 
-export function pagesPage(report: Report, titles: Titles, days: Range, view: View): Block[] {
+export function pagesPage(report: Report, pages: Pages, days: Range, view: View): Block[] {
 	const { messages, locale } = view;
 	return [
 		{ type: "header", text: messages.title },
@@ -283,14 +284,20 @@ export function pagesPage(report: Report, titles: Titles, days: Range, view: Vie
 				{ key: "path", label: messages.page },
 				{ key: "pageViews", label: messages.pageViews, format: "number" },
 				{ key: "change", label: messages.change },
+				// Studio marked CMS pages with a badge; a link to the editor says the same and saves a search.
+				{ key: "cms", label: messages.cms, format: "element" },
 			],
 			rows: report.pages.map((page) => {
 				const change = changeOf(page.pageViews, page.previousPageViews);
 				const arrow = change === null ? "" : change > 0 ? "↑ " : change < 0 ? "↓ " : "";
+				const content = pages.get(page.path)?.content;
 				return {
-					path: pageLabel(page.path, titles, view),
+					path: pageLabel(page.path, pages, view),
 					pageViews: page.pageViews,
 					change: change === null ? messages.newPage : arrow + percent(change, locale, "never"),
+					...(content && {
+						cms: { type: "link", label: messages.edit, target: { kind: "content", ...content } },
+					}),
 				};
 			}),
 			empty_text: messages.empty,

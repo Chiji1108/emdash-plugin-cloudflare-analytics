@@ -5,7 +5,7 @@ import { z } from "zod";
 import { CloudflareError, loadReport, loadSummary, type Connection } from "./cloudflare.js";
 import { isTimeZone } from "./dates.js";
 import { messagesFor } from "./messages.js";
-import { recordTitle, titlesFor } from "./titles.js";
+import { pagesFor, recordPage } from "./pages.js";
 import { failure, pagesPage, parseShowValue, reportPage, reportWidget, setupNeeded, SHOW_ACTION, type Range, type Section } from "./view.js";
 
 const WIDGET_PAGE = "widget:overview";
@@ -48,7 +48,11 @@ const plugin: SandboxedPlugin = {
 	hooks: {
 		"page:metadata": {
 			handler: async (event, ctx) => {
-				await recordTitle(ctx, event.page.path, event.page.pageTitle ?? event.page.title);
+				const { path, pageTitle, title, content } = event.page;
+				await recordPage(ctx, path, {
+					title: (pageTitle ?? title ?? "").trim(),
+					...(content && { content: { collection: content.collection, id: content.id } }),
+				});
 				return null;
 			},
 		},
@@ -89,9 +93,9 @@ const plugin: SandboxedPlugin = {
 					}
 					// The overview and the page list read the same report, so one fetch serves both.
 					const report = await cached(ctx, key("report"), () => loadReport(fetch, connection, days));
-					const titles = await titlesFor(ctx, report.pages.map((page) => page.path));
+					const pages = await pagesFor(ctx, report.pages.map((page) => page.path));
 					return {
-						blocks: section === "pages" ? pagesPage(report, titles, days, view) : reportPage(report, titles, days, view),
+						blocks: section === "pages" ? pagesPage(report, pages, days, view) : reportPage(report, pages, days, view),
 					};
 				} catch (error) {
 					if (!(error instanceof CloudflareError)) throw error;
