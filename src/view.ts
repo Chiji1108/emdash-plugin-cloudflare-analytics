@@ -45,6 +45,14 @@ function readablePath(path: string): string {
 	}
 }
 
+type Titles = Map<string, string>;
+
+/** Studio's "Name /path" label; the home page's title is usually just the site name. */
+function pageLabel(path: string, titles: Titles, { messages }: View): string {
+	const name = path === "/" ? messages.home : titles.get(path);
+	return name ? `${name}  ${readablePath(path)}` : readablePath(path);
+}
+
 function trendOf(change: number): StatItem["trend"] {
 	return change > 0 ? "up" : change < 0 ? "down" : "neutral";
 }
@@ -116,7 +124,7 @@ function visitsStat(report: Summary, view: View): Block {
 	};
 }
 
-function insights(report: Report, view: View): Block {
+function insights(report: Report, titles: Titles, view: View): Block {
 	const { messages, locale } = view;
 	const { totals, previous, days } = report;
 	const pageViewsChange = changeOf(totals.pageViews, previous.pageViews);
@@ -146,7 +154,7 @@ function insights(report: Report, view: View): Block {
 		.filter((row): row is { page: Report["pages"][number]; change: number } => row.change !== null && row.change > 0)
 		.sort((a, b) => b.change - a.change)[0];
 	if (rising) {
-		items.push(stat(messages.trending(readablePath(rising.page.path)), rising.page.pageViews.toLocaleString(locale), rising.change, days, view));
+		items.push(stat(messages.trending(pageLabel(rising.page.path, titles, view)), rising.page.pageViews.toLocaleString(locale), rising.change, days, view));
 	}
 	return { type: "stats", items };
 }
@@ -224,7 +232,7 @@ function breakdowns(report: Report, view: View): Block {
 	};
 }
 
-export function reportPage(report: Report, days: Range, view: View): Block[] {
+export function reportPage(report: Report, titles: Titles, days: Range, view: View): Block[] {
 	const { messages, locale } = view;
 	const top = report.pages.slice(0, TOP_PAGES);
 	const max = top[0]?.pageViews ?? 0;
@@ -241,7 +249,7 @@ export function reportPage(report: Report, days: Range, view: View): Block[] {
 						? top.map(
 								(page): Block => ({
 									type: "meter",
-									label: readablePath(page.path),
+									label: pageLabel(page.path, titles, view),
 									value: page.pageViews,
 									max,
 									custom_value: page.pageViews.toLocaleString(locale),
@@ -256,13 +264,13 @@ export function reportPage(report: Report, days: Range, view: View): Block[] {
 			],
 		},
 		{ type: "header", text: messages.insights(report.days) },
-		insights(report, view),
+		insights(report, titles, view),
 		breakdowns(report, view),
 		{ type: "context", text: messages.sampled },
 	];
 }
 
-export function pagesPage(report: Report, days: Range, view: View): Block[] {
+export function pagesPage(report: Report, titles: Titles, days: Range, view: View): Block[] {
 	const { messages, locale } = view;
 	return [
 		{ type: "header", text: messages.title },
@@ -280,7 +288,7 @@ export function pagesPage(report: Report, days: Range, view: View): Block[] {
 				const change = changeOf(page.pageViews, page.previousPageViews);
 				const arrow = change === null ? "" : change > 0 ? "↑ " : change < 0 ? "↓ " : "";
 				return {
-					path: readablePath(page.path),
+					path: pageLabel(page.path, titles, view),
 					pageViews: page.pageViews,
 					change: change === null ? messages.newPage : arrow + percent(change, locale, "never"),
 				};

@@ -50,6 +50,7 @@ The plugin queries the `rumPageloadEventsAdaptiveGroups` dataset of the [GraphQL
 
 - Cloudflare keeps Web Analytics data for six months. It samples older data, so the numbers are estimates, as they are in the Cloudflare dashboard.
 - The GraphQL API limits queries by cost, about 300 per 5 minutes. The plugin asks for [account-based limits](https://developers.cloudflare.com/analytics/graphql-api/account-based-rate-limiting/), so its budget is not shared with your other tokens. The widget queries 2 datasets per load and the analytics page 7, and each result is reused for 5 minutes.
+- Web Analytics records paths, not page names. The plugin learns a page's name from its title the next time the site renders it, and only for paths the report has listed, so the names fill in over the first hour or so after installing. Until then the report shows the path.
 - Days are grouped from hourly data. In a time zone whose offset is not a whole hour, such as `Asia/Kolkata`, a day's boundary can be off by up to 30 minutes.
 
 ## Develop

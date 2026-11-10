@@ -1,6 +1,7 @@
 const en = {
 	title: "Analytics",
 	overview: "Overview",
+	home: "Home",
 	pagesTitle: "All pages",
 	lastDays: (days: number) => `Last ${days} days`,
 	siteVisits: "Site visits",
@@ -46,6 +47,7 @@ export type Messages = typeof en;
 const ja: Messages = {
 	title: "アナリティクス",
 	overview: "概要",
+	home: "トップページ",
 	pagesTitle: "ページ一覧",
 	lastDays: (days) => `過去${days}日間`,
 	siteVisits: "サイト全体の訪問数",

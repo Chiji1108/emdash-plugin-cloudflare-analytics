@@ -133,10 +133,28 @@ describe("report page", () => {
 		await respond(report);
 		const page = await host!.admin.loadPage("/report");
 		expect(findBlocks(page.blocks, "meter")).toMatchObject([
-			{ label: "/", value: 80, max: 80, custom_value: "80" },
+			{ label: "Home  /", value: 80, max: 80, custom_value: "80" },
 			{ label: "/about", value: 20, max: 80 },
 			{ label: "/news/お知らせ", value: 5, max: 80 },
 		]);
+	});
+
+	it("names pages the site has rendered since the report asked for them", async () => {
+		await connectedHost();
+		await respond(report);
+		await host!.admin.loadPage("/report");
+		const render = (path: string, pageTitle: string) =>
+			host!.transport.invokeHook("page:metadata", {
+				page: { url: `https://example.com${path}`, path, locale: null, kind: "custom", pageType: "website", title: `${pageTitle} | Site`, pageTitle, description: null, canonical: null, image: null },
+			});
+		await render("/about", "About us");
+		await render("/wp-login.php", "Not found");
+
+		const page = await host!.admin.loadPage("/report");
+		expect(findBlocks(page.blocks, "meter").map((meter: any) => meter.label)).toEqual(["Home  /", "About us  /about", "/news/お知らせ"]);
+		const titles: Record<string, string | null> = (await host!.inspect.kv.get("state:pageTitles"))!;
+		expect(Object.keys(titles)).not.toContain("/wp-login.php");
+		expect(host!.http.requests()).toHaveLength(1);
 	});
 
 	it("lists every page with its change", async () => {
@@ -144,7 +162,7 @@ describe("report page", () => {
 		await respond(report);
 		const page = await host!.admin.act("/report", "show", { value: "pages:30" });
 		expect(findBlock(page.blocks, "table").rows).toEqual([
-			{ path: "/", pageViews: 80, change: "↓ 20.0%" },
+			{ path: "Home  /", pageViews: 80, change: "↓ 20.0%" },
 			{ path: "/about", pageViews: 20, change: "↑ 150.0%" },
 			{ path: "/news/お知らせ", pageViews: 5, change: "New" },
 		]);

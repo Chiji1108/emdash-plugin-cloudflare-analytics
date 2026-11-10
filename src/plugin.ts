@@ -5,6 +5,7 @@ import { z } from "zod";
 import { CloudflareError, loadReport, loadSummary, type Connection } from "./cloudflare.js";
 import { isTimeZone } from "./dates.js";
 import { messagesFor } from "./messages.js";
+import { recordTitle, titlesFor } from "./titles.js";
 import { failure, pagesPage, parseShowValue, reportPage, reportWidget, setupNeeded, SHOW_ACTION, type Range, type Section } from "./view.js";
 
 const WIDGET_PAGE = "widget:overview";
@@ -44,6 +45,14 @@ async function readSetup(ctx: PluginContext): Promise<Setup> {
 }
 
 const plugin: SandboxedPlugin = {
+	hooks: {
+		"page:metadata": {
+			handler: async (event, ctx) => {
+				await recordTitle(ctx, event.page.path, event.page.pageTitle ?? event.page.title);
+				return null;
+			},
+		},
+	},
 	routes: {
 		admin: {
 			handler: async (routeCtx, ctx): Promise<BlockResponse> => {
@@ -80,7 +89,10 @@ const plugin: SandboxedPlugin = {
 					}
 					// The overview and the page list read the same report, so one fetch serves both.
 					const report = await cached(ctx, key("report"), () => loadReport(fetch, connection, days));
-					return { blocks: section === "pages" ? pagesPage(report, days, view) : reportPage(report, days, view) };
+					const titles = await titlesFor(ctx, report.pages.map((page) => page.path));
+					return {
+						blocks: section === "pages" ? pagesPage(report, titles, days, view) : reportPage(report, titles, days, view),
+					};
 				} catch (error) {
 					if (!(error instanceof CloudflareError)) throw error;
 					ctx.log.warn("Cloudflare Web Analytics request failed", { error: error.message });
