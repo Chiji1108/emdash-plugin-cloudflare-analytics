@@ -295,6 +295,16 @@ describe("report page", () => {
 	});
 });
 
+describe("permissions", () => {
+	it("lets editors read the report", async () => {
+		await connectedHost();
+		await respond(report);
+		const editor = await host!.fixtures.user({ email: "editor@example.com", role: "editor" });
+		const page = await host!.admin.loadPage("/report", { user: editor });
+		expect(findBlock(page.blocks, "stats").items[0].value).toBe("40");
+	});
+});
+
 describe("dashboard widget", () => {
 	it("summarises the last 7 days and links to the report", async () => {
 		await connectedHost();

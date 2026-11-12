@@ -59,6 +59,9 @@ const plugin: SandboxedPlugin = {
 	},
 	routes: {
 		admin: {
+			// Private routes default to admins only; editors look after the content, so
+			// they should see how it is read.
+			permission: "plugins:read",
 			handler: async (routeCtx, ctx): Promise<BlockResponse> => {
 				const parsed = interactionSchema.safeParse(routeCtx.input);
 				if (!parsed.success) return { blocks: [] };
